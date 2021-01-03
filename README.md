@@ -2,9 +2,7 @@
 
 An "artifact" generator. Artifacts are randomly-generated, symmetric, two-color images. Due to their randomly-generated nature, most of them aren't that interesting, but occasionally you can discover some good ones. Here are some examples:
 
-<img src="/images/0.bmp">
-<img src="/images/4.bmp">
-<img src="/images/20.bmp">
+<img src="/images/0.bmp"><img src="/images/4.bmp"><img src="/images/20.bmp">
 <img src="/images/120.bmp">
 <img src="/images/208.bmp">
 <img src="/images/366.bmp">
