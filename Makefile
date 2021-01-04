@@ -1,7 +1,7 @@
 CC = gcc
 TARGET = artifactor
 DEBUG_FLAGS = -g
-FLAGS = -Wall $(shell sdl2-config --cflags)
+FLAGS = -Wall -pedantic $(shell sdl2-config --cflags)
 LINK_FLAGS = $(shell sdl2-config --libs) $(FLAGS) -lm -lSDL2_image -lSDL2_ttf
 OBJECTS = $(patsubst %.c, %.o, $(shell find . -name "*.c"))
 

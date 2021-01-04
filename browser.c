@@ -63,10 +63,11 @@ static Artifact generate_artifact_SDL(int id) {
     Artifact artifact = {.id = id};
     artifact.surface = SDL_CreateRGBSurface(0, GENERATED_SIZE, GENERATED_SIZE, 
         32, R_MASK, G_MASK, B_MASK, A_MASK);
-    generate_artifact((int*) artifact.surface->pixels, id);
-    // apply alpha mask, ensure a=255
+    int* pixels = (int*) artifact.surface->pixels;
+    generate_artifact(pixels, id);
+    // apply alpha mask, ensure non-zero pixels have a=255
     for (int i = 0; i < GENERATED_SIZE * GENERATED_SIZE; i++) {
-        ((int*) artifact.surface->pixels)[i] |= A_MASK;
+        if (pixels[i] != 0) pixels[i] |= A_MASK;
     }
     artifact.texture = SDL_CreateTextureFromSurface(renderer, artifact.surface);
     return artifact;
@@ -400,7 +401,7 @@ static void render() {
     SDL_RenderPresent(renderer);
 }
 
-int main(int argc, char **argv) {
+int main() {
     // init
     SDL_Init(SDL_INIT_EVERYTHING);
     SDL_Window* window = SDL_CreateWindow("Artifactor", SDL_WINDOWPOS_UNDEFINED,
