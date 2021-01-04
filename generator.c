@@ -1,8 +1,9 @@
-/* generator.c - generates artifacts
+/* generator.c - generates two-color, symmetric, 8x8 artifacts
     author: Andrew Klinge
 */
 
 #include <stdlib.h>
+
 #include "generator.h"
 
 const int GENERATED_SIZE = 8;
@@ -38,7 +39,7 @@ static void rotate90(int *x, int *y) {
     *y = ny;
 }
 
-void generate_artifact(int *pixels, int id, int alpha_mask) {
+void generate_artifact(int *pixels, int id) {
     srand(id);
 
     // randomly fill in pixels (0->transparent, 1->placeholder pixel)
@@ -50,8 +51,8 @@ void generate_artifact(int *pixels, int id, int alpha_mask) {
     }
 
     // randomly assign two colors
-    int col1 = rand() | alpha_mask;
-    int col2 = rand() | alpha_mask;
+    int col1 = rand();
+    int col2 = rand();
     for (int x = 0; x < GENERATED_SIZE; x++) {
         for (int y = 0; y < GENERATED_SIZE; y++) {
             if (pixels[x + Y(y)] != 0) {

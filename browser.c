@@ -18,7 +18,7 @@ static const int WINDOW_WIDTH = 480;
 static const int WINDOW_HEIGHT = 480;
 static const int SCALE = 6; // factor to scale-up artifact images by
 static const int FADE_TIME = 1000; // how long fading effect takes (ms)
-static const int NOT_FADE_TIME = 3000; // time before fading begins (ms)
+static const int PRE_FADE_TIME = 3000; // time before fading begins (ms)
 // max # of digits (+null) for uint string
 #define MAX_DIGITS 11 
 
@@ -61,17 +61,19 @@ static Artifact generate_artifact_SDL(int id) {
     #endif
 
     Artifact artifact = {.id = id};
-    artifact.surface = SDL_CreateRGBSurface(0, GENERATED_SIZE, 
-        GENERATED_SIZE, 32, R_MASK, G_MASK, B_MASK, A_MASK);
-    generate_artifact((int*) artifact.surface->pixels, id, A_MASK);
+    artifact.surface = SDL_CreateRGBSurface(0, GENERATED_SIZE, GENERATED_SIZE, 
+        32, R_MASK, G_MASK, B_MASK, A_MASK);
+    generate_artifact((int*) artifact.surface->pixels, id);
+    // apply alpha mask, ensure a=255
+    for (int i = 0; i < GENERATED_SIZE * GENERATED_SIZE; i++) {
+        ((int*) artifact.surface->pixels)[i] |= A_MASK;
+    }
     artifact.texture = SDL_CreateTextureFromSurface(renderer, artifact.surface);
-    SDL_SetTextureBlendMode(artifact.texture, SDL_BLENDMODE_BLEND);
     return artifact;
 }
 
 /* frees resources of no-longer visible artifact. */
 static void free_artifact(Artifact *artifact) {
-    if (artifact->texture == NULL) return;
     SDL_FreeSurface(artifact->surface);
     SDL_DestroyTexture(artifact->texture);
 }
@@ -84,8 +86,8 @@ static void update_selected() {
 
 /* moves the displayed rows of artifacts down (false) or up (true). */
 static void shift_rows(bool up_vs_down) {
+    int first_id = artifacts[0].id;
     if (up_vs_down) {
-        int first_id = artifacts[0].id;
         // remove shifted-out artifacts
         for (int i = 0; i < onscreen_offset; i++) {
             free_artifact(&artifacts[i]);
@@ -101,7 +103,6 @@ static void shift_rows(bool up_vs_down) {
             artifacts[index] = generate_artifact_SDL(id);
         }
     } else {
-        int first_id = artifacts[0].id;
         // remove shifted-out artifacts
         for (int i = 0; i < onscreen_offset; i++) {
             int index = i + onscreen_offset + rows * cols;
@@ -120,7 +121,7 @@ static void shift_rows(bool up_vs_down) {
 }
 
 /* jumps directly to the artifact with the given id. */
-static void jump(int id) {
+static void jump(uint32_t id) {
     int row = id / cols;
     int col = id % cols;
     cursorx = col;
@@ -151,7 +152,7 @@ static void jump(int id) {
 }
 
 static void init() {
-    // populate view with artifact (+2 to allow for spacings)
+    // populate view with artifacts (+2 to allow for spacings)
     cols = (WINDOW_WIDTH / (GENERATED_SIZE * SCALE + 2));//
     rows = (WINDOW_HEIGHT / (GENERATED_SIZE * SCALE + 2));
     int offscreen = cols * 2;
@@ -164,12 +165,9 @@ static void init() {
     cursory = 0;
     update_selected();
 
-    // don't generate any offscreen with IDs < 0 (IDs must be >= 0)
-    for (int i = 0; i < onscreen_offset; i++) {
-        artifacts[i].texture = NULL;
-    }
-    for (int i = 0; i < size - onscreen_offset; i++) {
-        artifacts[i + onscreen_offset] = generate_artifact_SDL(i);
+    // generate artifacts
+    for (int i = 0; i < size; i++) {
+        artifacts[i] = generate_artifact_SDL(i - onscreen_offset);
     }
 
     // init font
@@ -187,7 +185,7 @@ static bool update() {
     static int input_i = 0; // index in input
 
     if (input_fade != -1 
-    && SDL_GetTicks() - input_fade >= FADE_TIME + NOT_FADE_TIME) {
+    && SDL_GetTicks() - input_fade >= FADE_TIME + PRE_FADE_TIME) {
         input_fade = -1;
     }
 
@@ -217,7 +215,7 @@ static bool update() {
                     case SDLK_8:
                     case SDLK_9: {
                         // input number as id to jump to
-                        if (SDL_GetTicks() - input_fade > NOT_FADE_TIME) {
+                        if (SDL_GetTicks() - input_fade > PRE_FADE_TIME) {
                             // reset input buffer for new number
                             input_i = 0;
                         }
@@ -241,7 +239,7 @@ static bool update() {
                                 input_color = COLOR_GREEN;
                                 jump(id);
                             }
-                            input_fade = SDL_GetTicks() - NOT_FADE_TIME;
+                            input_fade = SDL_GetTicks() - PRE_FADE_TIME;
                         }
                         break;
                     }
@@ -250,8 +248,19 @@ static bool update() {
                         uint32_t id = cursorx + cursory * cols;
                         char buf[MAX_DIGITS + 4];
                         snprintf(buf, MAX_DIGITS + 4, "%u.bmp", id);
-                        if (access(buf, F_OK) != 0) // don't overwrite 
-                            SDL_SaveBMP(artifacts[id].surface, buf);
+                        // don't overwrite existing file
+                        if (access(buf, F_OK) == 0) break;
+
+                        int index = onscreen_offset + cursorx;
+                        if (cursory <= rows / 2) {
+                            index += (cursory % rows) * cols;
+                        } else if(cursory >= UINT_MAX / rows - rows / 2) {
+                            int middle = UINT_MAX / rows - rows / 2;
+                            index += (cursory - middle + rows / 2) * cols;
+                        } else {
+                            index += (rows / 2) * cols;
+                        }
+                        SDL_SaveBMP(artifacts[index].surface, buf);
                         break;
                     }
                     case SDLK_d:
@@ -259,7 +268,7 @@ static bool update() {
                         // move cursor right
                         cursorx++;
                         if (cursorx >= cols) {
-                            if (cursory < UINT_MAX / rows - 1) {
+                            if (cursory < UINT_MAX / rows) {
                                 // wrap around to next row
                                 cursorx = 0;
                                 goto _MOVE_DOWN;
@@ -290,7 +299,7 @@ static bool update() {
                     case SDLK_DOWN: {
                     _MOVE_DOWN:
                         // move cursor down
-                        if (cursory < UINT_MAX / rows - 1) {
+                        if (cursory < UINT_MAX / rows) {
                             cursory++;
                             // cursor stays center until at end of page
                             if (cursory > rows / 2
@@ -354,8 +363,8 @@ static void render() {
 
     // draw input text
     if (input_fade != -1) {
-        if (SDL_GetTicks() - input_fade > NOT_FADE_TIME + FADE_TIME) {
-            input_color.a = 255 * (NOT_FADE_TIME + FADE_TIME 
+        if (SDL_GetTicks() - input_fade > PRE_FADE_TIME + FADE_TIME) {
+            input_color.a = 255 * (PRE_FADE_TIME + FADE_TIME 
                 - (SDL_GetTicks() - input_fade)) / FADE_TIME;
         }
         SDL_Surface *surface = TTF_RenderText_Shaded(font, input, input_color,
@@ -366,17 +375,25 @@ static void render() {
         rect.x = (WINDOW_WIDTH - rect.w) / 2;
         rect.y = (WINDOW_HEIGHT - rect.h) / 2;
         SDL_RenderCopy(renderer, texture, NULL, &rect);
+
+        // don't forget to free
+        SDL_FreeSurface(surface);
+        SDL_DestroyTexture(texture);
     }
     
     { // draw selected artifact id
-        SDL_Surface *surf = TTF_RenderText_Solid(font_small, selected, 
+        SDL_Surface *surface = TTF_RenderText_Solid(font_small, selected, 
             COLOR_WHITE);
-        SDL_Texture *tex = SDL_CreateTextureFromSurface(renderer, surf);
-        rect.w = surf->w;
-        rect.h = surf->h;
+        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+        rect.w = surface->w;
+        rect.h = surface->h;
         rect.x = 1;
         rect.y = 1;
-        SDL_RenderCopy(renderer, tex, NULL, &rect);
+        SDL_RenderCopy(renderer, texture, NULL, &rect);
+
+        // don't forget to free
+        SDL_FreeSurface(surface);
+        SDL_DestroyTexture(texture);
     }
 
     // draw to screen
@@ -393,16 +410,14 @@ int main(int argc, char **argv) {
     init();
 
     // run
-    while (true) {
-        if (update()) break;
-
+    while (!update()) {
         // render ~60 fps
         static int last_tick = 0;
         if (SDL_GetTicks() - last_tick >= 1000 / 60) {
             render();
             last_tick = SDL_GetTicks();
         }
-        SDL_Delay(1); // no reason to be constantly running. take a break
+        SDL_Delay(1); // don't max out the CPU. don't need constant updates
     }
 
     // cleanup

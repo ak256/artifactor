@@ -8,9 +8,10 @@ Idea taken from the game Tea Garden by Younès Rabii (<a href="https://github.co
 
 Generator GUI controls:
 
-* arrow keys or WASD to navigate selection cursor to browse
+* Arrow keys or WASD to navigate selection cursor to browse
 * X to save selected artifact to image
-* number keys (0-9) to input specific ID to jump to,
-* Enter to enter and jump to this ID
+* Number keys (0-9) to input specific ID to jump to
+* Backspace to delete last entered number
+* Enter to confirm ID input and to jump to the corresponding artifact 
 
-The possible artifact IDs range from 0 to 4294967295.
+The possible artifact IDs range from 0 to 4294967295 (2^32 - 1).
