@@ -2,7 +2,7 @@
 
 An "artifact" generator. Artifacts are randomly-generated, symmetric, two-color images. Due to their randomly-generated nature, most of them aren't that interesting, but occasionally you can discover some good ones. Here is an example of the generator in action:
 
-<img src="screenshot.png"> 
+<p align="center"><img src="screenshot.png"/></p>
 
 Idea taken from the game Tea Garden by Younès Rabii (<a href="https://github.com/Pyrofoux">"Pyrofoux"</a>), where such artifacts are flowers that the player can find. This implementation is not a game, only a generator (with optional simple renderer using SDL2). You can browse artifacts, find the same ones again using their unique IDs, and save them as images.
 
